@@ -6,10 +6,9 @@ from datetime import datetime
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("Expenses")
+budget_table = dynamodb.Table("BudgetSettings")
 
 sns = boto3.client("sns")
-
-MONTHLY_BUDGET = Decimal("1500")
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:803179100419:expense-budget-alerts"
 
@@ -32,7 +31,53 @@ def lambda_handler(event, context):
             },
             "body": json.dumps(expenses, default=str)
         }
+        # GET - Fetch budget
+    if method == "GET" and event.get("rawPath") == "/budget":
 
+        response = budget_table.get_item(
+            Key={"setting_id": "default"}
+        )
+
+        budget = response.get("Item")
+
+        if not budget:
+            return {
+                "statusCode": 200,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({
+                    "monthly_budget": 0
+                })
+            }
+
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(budget, default=str)
+        }
+
+        # PUT - Set budget
+    elif method == "PUT" and event.get("rawPath") == "/budget":
+
+        body = json.loads(event.get("body", "{}"))
+
+        budget = Decimal(str(body["monthly_budget"]))
+
+        budget_table.put_item(
+            Item={
+                "setting_id": "default",
+                "monthly_budget": budget
+            }
+        )
+
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "message": "Budget updated successfully",
+                "monthly_budget": budget
+            }, default=str)
+        }
+    
     # POST - Add expense
     elif method == "POST":
 
@@ -48,42 +93,44 @@ def lambda_handler(event, context):
 
         table.put_item(Item=expense)
 
-                # Check monthly spending
-        response = table.scan()
-        items = response.get("Items", [])
-
-        current_month = datetime.now().strftime("%Y-%m")
-
-        monthly_total = sum(
-            (
-                item["amount"]
-                for item in items
-                if str(item.get("date", "")).startswith(current_month)
-            ),
-            Decimal("0")
+                # Get user's monthly budget
+        budget_response = budget_table.get_item(
+            Key={"setting_id": "default"}
         )
 
-        # Send budget alert
-        if monthly_total >= MONTHLY_BUDGET:
-            sns.publish(
-                TopicArn=SNS_TOPIC_ARN,
-                Subject="Expense Budget Alert",
-                Message=(
-                    f"Monthly budget exceeded!\n\n"
-                    f"Budget: ₹{MONTHLY_BUDGET}\n"
-                    f"Current spending: ₹{monthly_total}"
-                )
+        budget_item = budget_response.get("Item")
+
+        if budget_item:
+            monthly_budget = Decimal(
+                str(budget_item["monthly_budget"])
             )
-        return {
-            "statusCode": 201,
-            "headers": {
-                "Content-Type": "application/json"
-            },
-            "body": json.dumps({
-                "message": "Expense added successfully",
-                "expense": expense
-            }, default=str)
-        }
+
+            # Check monthly spending
+            response = table.scan()
+            items = response.get("Items", [])
+
+            current_month = datetime.now().strftime("%Y-%m")
+
+            monthly_total = sum(
+                (
+                    Decimal(str(item["amount"]))
+                    for item in items
+                    if str(item.get("date", "")).startswith(current_month)
+                ),
+                Decimal("0")
+            )
+
+            # Send budget alert
+            if monthly_total >= monthly_budget:
+                sns.publish(
+                    TopicArn=SNS_TOPIC_ARN,
+                    Subject="Expense Budget Alert",
+                    Message=(
+                        f"Monthly budget exceeded!\n\n"
+                        f"Budget: ₹{monthly_budget}\n"
+                        f"Current spending: ₹{monthly_total}"
+                    )
+                )
 
     # DELETE - Delete expense
     elif method == "DELETE":
