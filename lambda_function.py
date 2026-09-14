@@ -1,16 +1,18 @@
-import boto3
 import json
+import boto3
 import uuid
 from decimal import Decimal
 from datetime import datetime
 
 dynamodb = boto3.resource("dynamodb")
+
 table = dynamodb.Table("Expenses")
 budget_table = dynamodb.Table("BudgetSettings")
 
 sns = boto3.client("sns")
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:803179100419:expense-budget-alerts"
+
 
 def lambda_handler(event, context):
 
@@ -50,9 +52,8 @@ def lambda_handler(event, context):
             "body": json.dumps(budget, default=str)
         }
 
-
     # =========================
-    # SET BUDGET
+    # PUT BUDGET
     # =========================
     elif method == "PUT" and path == "/budget":
 
@@ -78,13 +79,13 @@ def lambda_handler(event, context):
             }, default=str)
         }
 
-
     # =========================
     # GET EXPENSES
     # =========================
     elif method == "GET" and path == "/expenses":
 
         response = table.scan()
+
         expenses = response.get("Items", [])
 
         return {
@@ -95,13 +96,10 @@ def lambda_handler(event, context):
             "body": json.dumps(expenses, default=str)
         }
 
-
     # =========================
     # POST EXPENSE
     # =========================
     elif method == "POST" and path == "/expenses":
-
-        # your existing POST code goes here
 
         body = json.loads(event.get("body", "{}"))
 
@@ -115,7 +113,10 @@ def lambda_handler(event, context):
 
         table.put_item(Item=expense)
 
-                # Get user's monthly budget
+        # -------------------------
+        # Check user's budget
+        # -------------------------
+
         budget_response = budget_table.get_item(
             Key={"setting_id": "default"}
         )
@@ -123,12 +124,13 @@ def lambda_handler(event, context):
         budget_item = budget_response.get("Item")
 
         if budget_item:
+
             monthly_budget = Decimal(
                 str(budget_item["monthly_budget"])
             )
 
-            # Check monthly spending
             response = table.scan()
+
             items = response.get("Items", [])
 
             current_month = datetime.now().strftime("%Y-%m")
@@ -137,13 +139,19 @@ def lambda_handler(event, context):
                 (
                     Decimal(str(item["amount"]))
                     for item in items
-                    if str(item.get("date", "")).startswith(current_month)
+                    if str(item.get("date", "")).startswith(
+                        current_month
+                    )
                 ),
                 Decimal("0")
             )
 
-            # Send budget alert
+            # -------------------------
+            # Send SNS alert
+            # -------------------------
+
             if monthly_total >= monthly_budget:
+
                 sns.publish(
                     TopicArn=SNS_TOPIC_ARN,
                     Subject="Expense Budget Alert",
@@ -154,8 +162,21 @@ def lambda_handler(event, context):
                     )
                 )
 
-    # DELETE - Delete expense
-    elif method == "DELETE":
+        return {
+            "statusCode": 201,
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": json.dumps({
+                "message": "Expense added successfully",
+                "expense": expense
+            }, default=str)
+        }
+
+    # =========================
+    # DELETE EXPENSE
+    # =========================
+    elif method == "DELETE" and path.startswith("/expenses/"):
 
         expense_id = event.get(
             "pathParameters", {}
@@ -183,11 +204,19 @@ def lambda_handler(event, context):
             })
         }
 
+    # =========================
+    # INVALID ROUTE
+    # =========================
     else:
 
         return {
-            "statusCode": 405,
+            "statusCode": 404,
+            "headers": {
+                "Content-Type": "application/json"
+            },
             "body": json.dumps({
-                "message": "Method not allowed"
+                "message": "Route not found",
+                "method": method,
+                "path": path
             })
         }

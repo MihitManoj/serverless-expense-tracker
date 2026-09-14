@@ -22,13 +22,3 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::803179100419:role/GitHubActionsLambdaDeploy
           aws-region: us-east-1
-
-      - name: Create Lambda package
-        run: |
-          zip lambda.zip lambda_function.py
-
-      - name: Deploy Lambda
-        run: |
-          aws lambda update-function-code \
-            --function-name expense-tracker-api \
-            --zip-file fileb://lambda.zip

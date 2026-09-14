@@ -2,7 +2,11 @@ import streamlit as st
 import requests
 import pandas as pd
 
-API_URL = "https://800rayj76a.execute-api.us-east-1.amazonaws.com/expenses"
+API_URL = "https://800rayj76a.execute-api.us-east-1.amazonaws.com"
+
+
+EXPENSES_URL = f"{API_URL}/expenses"
+BUDGET_URL = f"{API_URL}/budget"
 # --------------------------------
 # Page configuration
 # --------------------------------
@@ -19,8 +23,16 @@ st.set_page_config(
 # Functions
 # --------------------------------
 
-def add_expense(amount, category, description, date):
+def get_expenses():
+    response = requests.get(EXPENSES_URL)
 
+    if response.status_code == 200:
+        return response.json()
+
+    return []
+
+
+def add_expense(amount, category, description, date):
     expense = {
         "amount": amount,
         "category": category,
@@ -28,30 +40,34 @@ def add_expense(amount, category, description, date):
         "date": str(date)
     }
 
-    response = requests.post(
-        API_URL,
+    return requests.post(
+        EXPENSES_URL,
         json=expense
     )
 
-    return response
-
-
-def get_expenses():
-
-    response = requests.get(API_URL)
-
-    if response.status_code == 200:
-        return response.json()
-
-    return []
 
 def delete_expense(expense_id):
+    return requests.delete(
+        f"{EXPENSES_URL}/{expense_id}"
+    )
 
-    url = f"{API_URL}/{expense_id}"
 
-    response = requests.delete(url)
+def get_budget():
+    response = requests.get(BUDGET_URL)
 
-    return response
+    if response.status_code == 200:
+        return float(
+            response.json().get("monthly_budget", 0)
+        )
+
+    return 0.0
+
+
+def set_budget(budget):
+    return requests.put(
+        BUDGET_URL,
+        json={"monthly_budget": budget}
+    )
 
 # --------------------------------
 # Title
@@ -61,7 +77,25 @@ st.title("💰 Expense Tracker")
 
 st.write("Track and manage your daily expenses")
 
+st.subheader("Monthly Budget")
 
+current_budget = get_budget()
+
+budget = st.number_input(
+    "Set your monthly budget (₹)",
+    min_value=0.0,
+    value=float(current_budget),
+    step=500.0
+)
+
+if st.button("Save Budget"):
+    response = set_budget(budget)
+
+    if response.status_code == 200:
+        st.success("Budget saved successfully!")
+    else:
+        st.error(f"Failed to save budget: {response.text}")
+        
 # --------------------------------
 # Add Expense
 # --------------------------------
