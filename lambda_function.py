@@ -1,11 +1,17 @@
-import json
 import boto3
+import json
 import uuid
 from decimal import Decimal
+from datetime import datetime
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("Expenses")
 
+sns = boto3.client("sns")
+
+MONTHLY_BUDGET = Decimal("10000")
+
+SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:803179100419:expense-budget-alerts"
 
 def lambda_handler(event, context):
 
@@ -42,6 +48,32 @@ def lambda_handler(event, context):
 
         table.put_item(Item=expense)
 
+                # Check monthly spending
+        response = table.scan()
+        items = response.get("Items", [])
+
+        current_month = datetime.now().strftime("%Y-%m")
+
+        monthly_total = sum(
+            (
+                item["amount"]
+                for item in items
+                if str(item.get("date", "")).startswith(current_month)
+            ),
+            Decimal("0")
+        )
+
+        # Send budget alert
+        if monthly_total >= MONTHLY_BUDGET:
+            sns.publish(
+                TopicArn=SNS_TOPIC_ARN,
+                Subject="Expense Budget Alert",
+                Message=(
+                    f"Monthly budget exceeded!\n\n"
+                    f"Budget: ₹{MONTHLY_BUDGET}\n"
+                    f"Current spending: ₹{monthly_total}"
+                )
+            )
         return {
             "statusCode": 201,
             "headers": {
