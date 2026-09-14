@@ -284,3 +284,4 @@ else:
                     st.error(
                     f"Failed to delete expense: {response.text}"
             )
+                    # CI/CD deployment test
