@@ -113,16 +113,6 @@ def lambda_handler(event, context):
 
         table.put_item(Item=expense)
 
-        return {
-        "statusCode": 201,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": json.dumps({
-            "message": "Expense added successfully",
-            "expense": expense
-        }, default=str)
-    }
         # -------------------------
         # Check user's budget
         # -------------------------
