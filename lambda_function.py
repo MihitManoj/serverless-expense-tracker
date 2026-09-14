@@ -18,21 +18,12 @@ def lambda_handler(event, context):
         "http", {}
     ).get("method")
 
-    # GET - Fetch all expenses
-    if method == "GET":
+    path = event.get("rawPath", "")
 
-        response = table.scan()
-        expenses = response.get("Items", [])
-
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json"
-            },
-            "body": json.dumps(expenses, default=str)
-        }
-        # GET - Fetch budget
-    if method == "GET" and event.get("rawPath") == "/budget":
+    # =========================
+    # GET BUDGET
+    # =========================
+    if method == "GET" and path == "/budget":
 
         response = budget_table.get_item(
             Key={"setting_id": "default"}
@@ -43,7 +34,9 @@ def lambda_handler(event, context):
         if not budget:
             return {
                 "statusCode": 200,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json"
+                },
                 "body": json.dumps({
                     "monthly_budget": 0
                 })
@@ -51,12 +44,17 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
+            "headers": {
+                "Content-Type": "application/json"
+            },
             "body": json.dumps(budget, default=str)
         }
 
-        # PUT - Set budget
-    elif method == "PUT" and event.get("rawPath") == "/budget":
+
+    # =========================
+    # SET BUDGET
+    # =========================
+    elif method == "PUT" and path == "/budget":
 
         body = json.loads(event.get("body", "{}"))
 
@@ -71,15 +69,39 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
+            "headers": {
+                "Content-Type": "application/json"
+            },
             "body": json.dumps({
                 "message": "Budget updated successfully",
                 "monthly_budget": budget
             }, default=str)
         }
-    
-    # POST - Add expense
-    elif method == "POST":
+
+
+    # =========================
+    # GET EXPENSES
+    # =========================
+    elif method == "GET" and path == "/expenses":
+
+        response = table.scan()
+        expenses = response.get("Items", [])
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": json.dumps(expenses, default=str)
+        }
+
+
+    # =========================
+    # POST EXPENSE
+    # =========================
+    elif method == "POST" and path == "/expenses":
+
+        # your existing POST code goes here
 
         body = json.loads(event.get("body", "{}"))
 
