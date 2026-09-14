@@ -9,7 +9,7 @@ table = dynamodb.Table("Expenses")
 
 sns = boto3.client("sns")
 
-MONTHLY_BUDGET = Decimal("10000")
+MONTHLY_BUDGET = Decimal("1500")
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:803179100419:expense-budget-alerts"
 
