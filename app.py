@@ -77,6 +77,54 @@ st.title("💰 Expense Tracker")
 
 st.write("Track and manage your daily expenses")
 
+expenses = get_expenses()
+current_budget = get_budget()
+
+from datetime import date
+current_month = date.today().strftime("%Y-%m")
+
+monthly_spent = sum(
+    float(expense["amount"])
+    for expense in expenses
+    if str(expense.get("date", "")).startswith(current_month)
+)
+
+remaining = max(current_budget - monthly_spent, 0)
+
+usage = (
+    monthly_spent / current_budget
+    if current_budget > 0
+    else 0
+)
+
+st.subheader("Budget Overview")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        "Monthly Budget",
+        f"₹{current_budget:,.2f}"
+    )
+
+with col2:
+    st.metric(
+        "Spent This Month",
+        f"₹{monthly_spent:,.2f}"
+    )
+
+with col3:
+    st.metric(
+        "Remaining",
+        f"₹{remaining:,.2f}"
+    )
+
+st.progress(
+    min(usage, 1.0),
+    text=f"Budget used: {usage * 100:.1f}%"
+)
+
+
 st.subheader("Monthly Budget")
 
 current_budget = get_budget()
@@ -95,6 +143,7 @@ if st.button("Save Budget"):
         st.success("Budget saved successfully!")
     else:
         st.error(f"Failed to save budget: {response.text}")
+
         
 # --------------------------------
 # Add Expense
@@ -171,6 +220,7 @@ if st.button("➕ Add Expense"):
 # --------------------------------
 
 expenses = get_expenses()
+
 
 # --------------------------------
 # Dashboard
