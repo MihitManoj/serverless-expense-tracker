@@ -152,23 +152,15 @@ def lambda_handler(event, context):
 
             if monthly_total >= monthly_budget:
 
-                try:
-                    response = sns.publish(
+                sns.publish(
                     TopicArn=SNS_TOPIC_ARN,
                     Subject="Expense Budget Alert",
                     Message=(
-                    f"Monthly budget exceeded!\n\n"
-                    f"Budget: ₹{monthly_budget}\n"
-                    f"Current spending: ₹{monthly_total}"
-        )
-    )
-
-                    print("SNS SUCCESS")
-                    print("Message ID:", response["MessageId"])
-
-                except Exception as e:
-                    print("SNS ERROR")
-                    print(str(e))
+                        f"Monthly budget exceeded!\n\n"
+                        f"Budget: ₹{monthly_budget}\n"
+                        f"Current spending: ₹{monthly_total}"
+                    )
+                )
                     
                 
 
